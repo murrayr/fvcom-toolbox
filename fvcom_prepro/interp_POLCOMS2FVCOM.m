@@ -1,9 +1,8 @@
 function Mobj = interp_POLCOMS2FVCOM(Mobj, ts, start_date, varlist)
 % Use an FVCOM restart file to seed a model run with spatially varying
-% versions of otherwise constant variables (temperature and salinity only
-% for the time being).
+% versions of otherwise constant variables.
 %
-% function interp_POLCOMS2FVCOM(Mobj, ts, start_date, fv_restart, varlist)
+% function interp_POLCOMS2FVCOM(Mobj, ts, start_date, varlist)
 %
 % DESCRIPTION:
 %    FVCOM does not yet support spatially varying temperature and salinity
@@ -19,23 +18,22 @@ function Mobj = interp_POLCOMS2FVCOM(Mobj, ts, start_date, varlist)
 %   Mobj        = MATLAB mesh structure which must contain:
 %                   - Mobj.siglayz - sigma layer depths for all model
 %                   nodes.
-%                   - Mobj.lon, Mobj.lat - node coordinates (long/lat).
-%                   - Mobj.ts_times - time series for the POLCOMS
-%                   temperature and salinity data.
+%                   - Mobj.lon, Mobj.lat - node coordinates (long/lat)
+%                   - Mobj.lonc, Mobj.latc - element coordinates (long/lat)
 %   ts          = Cell array of POLCOMS AMM NetCDF file(s) in which 4D
 %   variables of temperature and salinity (called 'ETWD' and 'x1XD') exist.
 %   Its/their shape should be (y, x, sigma, time).
 %   start_date  = Gregorian start date array (YYYY, MM, DD, hh, mm, ss).
 %   varlist     = cell array of variables to extract from the NetCDF files.
-% 
+%
 % OUTPUT:
 %   Mobj.restart = struct whose field names are the variables which have
 %   been interpolated (e.g. Mobj.restart.ETWD for POLCOMS daily mean
 %   temperature).
 %
 % EXAMPLE USAGE
-%   interp_POLCOMS2FVCOM(Mobj, '/tmp/ts.nc', '2006-01-01 00:00:00', ...
-%       {'lon', 'lat', 'ETWD', 'x1XD', 'time'})
+%   interp_POLCOMS2FVCOM(Mobj, '/tmp/ts.nc', [2006, 01, 01, 00, 00, 00], ...
+%       {'lon', 'lat', 'ETWD', 'x1XD', 'ucurD', 'vcurD', 'rholocalD', 'time'})
 %
 % Author(s):
 %   Pierre Cazenave (Plymouth Marine Laboratory)
@@ -49,6 +47,8 @@ function Mobj = interp_POLCOMS2FVCOM(Mobj, ts, start_date, varlist)
 %   surface; its depths are stored surface to seabed; FVCOM stores
 %   everything surface to seabed. As such, the POLCOMS scalar values need
 %   to be flipped upside down to match everything else.
+%   2013-07-30 Add density and u/v velocity components to the variables to
+%   interpolate.
 %
 %==========================================================================
 
@@ -83,6 +83,7 @@ pc = get_POLCOMS_netCDF(ts, varlist);
 
 % Number of sigma layers.
 [fn, fz] = size(Mobj.siglayz);
+fe = numel(Mobj.lonc);
 
 % Make rectangular arrays for the nearest point lookup.
 [lon, lat] = meshgrid(pc.lon.data, pc.lat.data);
@@ -117,18 +118,20 @@ if ftbverbose
     fprintf('%s : interpolate POLCOMS onto FVCOM''s vertical grid... ', subname)
 end
 
-% Permute the arrays to be x by y rather than y by x. Also flip the
-% vertical layer dimension to make the POLCOMS data go from surface to
-% seabed to match its depth data and to match how FVCOM works.
-temperature = flipdim(permute(squeeze(pc.ETWD.data(:, :, :, tidx)), [2, 1, 3]), 3);
-salinity = flipdim(permute(squeeze(pc.x1XD.data(:, :, :, tidx)), [2, 1, 3]), 3);
-density = flipdim(permute(squeeze(pc.rholocalD.data(:, :, :, tidx)), [2, 1, 3]), 3);
+% Permute the arrays to be x by y rather than y by x.
+temperature = permute(squeeze(pc.ETWD.data(:, :, :, tidx)), [2, 1, 3]);
+salinity = permute(squeeze(pc.x1XD.data(:, :, :, tidx)), [2, 1, 3]);
+density = permute(squeeze(pc.rholocalD.data(:, :, :, tidx)), [2, 1, 3]);
+u = permute(squeeze(pc.ucurD.data(:, :, :, tidx)), [2, 1, 3]);
+v = permute(squeeze(pc.vcurD.data(:, :, :, tidx)), [2, 1, 3]);
 depth = permute(squeeze(pc.depth.data(:, :, :, tidx)), [2, 1, 3]);
 mask = depth(:, :, end) >= 0; % land is positive.
 
 pc.tempz = grid_vert_interp(Mobj, lon, lat, temperature, depth, mask);
 pc.salz = grid_vert_interp(Mobj, lon, lat, salinity, depth, mask);
 pc.denz = grid_vert_interp(Mobj, lon, lat, density, depth, mask);
+pc.uvelz = grid_vert_interp(Mobj, lon, lat, u, depth, mask);
+pc.vvelz = grid_vert_interp(Mobj, lon, lat, v, depth, mask);
 
 if ftbverbose
     fprintf('done.\n') 
@@ -148,14 +151,20 @@ end
 fvtemp = nan(fn, fz);
 fvsalt = nan(fn, fz);
 fvdens = nan(fn, fz);
+fvuvel = nan(fe, fz);
+fvvvel = nan(fe, fz);
 
 plon = lon(:);
 plat = lat(:);
 flon = Mobj.lon;
 flat = Mobj.lat;
+flonc = Mobj.lonc;
+flatc = Mobj.latc;
 ptempz = pc.tempz;
 psalz = pc.salz;
 pdenz = pc.denz;
+puvelz = pc.uvelz;
+pvvelz = pc.vvelz;
 
 tic
 parfor zi = 1:fz
@@ -163,13 +172,17 @@ parfor zi = 1:fz
     ft = TriScatteredInterp(plon, plat, reshape(ptempz(:, :, zi), [], 1), 'natural');
     fs = TriScatteredInterp(plon, plat, reshape(psalz(:, :, zi), [], 1), 'natural');
     fd = TriScatteredInterp(plon, plat, reshape(pdenz(:, :, zi), [], 1), 'natural');
+    fu = TriScatteredInterp(plon, plat, reshape(puvelz(:, :, zi), [], 1), 'natural');
+    fv = TriScatteredInterp(plon, plat, reshape(pvvelz(:, :, zi), [], 1), 'natural');
     % Interpolate temperature and salinity onto the unstructured grid.
     fvtemp(:, zi) = ft(flon, flat);
     fvsalt(:, zi) = fs(flon, flat);
     fvdens(:, zi) = fd(flon, flat);
+    fvuvel(:, zi) = fu(flonc, flatc);
+    fvvvel(:, zi) = fv(flonc, flatc);
 end
 
-clear plon plat flon flat ptempz psalz pdenz
+clear plon plat flon flat flonc flatc ptempz psalz pdenz puvelz pvvelz
 
 % Unfortunately, TriScatteredInterp won't extrapolate, returning instead
 % NaNs outside the original data's extents. So, for each NaN position, find
@@ -179,7 +192,6 @@ clear plon plat flon flat ptempz psalz pdenz
 
 % We can assume that all layers will have NaNs in the same place
 % (horizontally), so just use the surface layer (1) for the identification
-
 % of NaNs. Also store the finite values so we can find the nearest real
 % value to the current NaN node and use its temperature and salinity
 % values.
@@ -200,6 +212,8 @@ for ni = 1:length(fvnanidx)
     fvtemp(fvnanidx(ni), :) = fvtemp(fvfinidx(di), :);
     fvsalt(fvnanidx(ni), :) = fvsalt(fvfinidx(di), :);
     fvdens(fvnanidx(ni), :) = fvdens(fvfinidx(di), :);
+    fvuvel(fvnanidx(ni), :) = fvuvel(fvfinidx(di), :);
+    fvvvel(fvnanidx(ni), :) = fvvvel(fvfinidx(di), :);
 end
 
 if ftbverbose
@@ -210,6 +224,8 @@ end
 Mobj.restart.temp = fvtemp;
 Mobj.restart.salinity = fvsalt;
 Mobj.restart.rho1 = fvdens;
+Mobj.restart.u = fvuvel;
+Mobj.restart.v = fvvvel;
 
 % Close the MATLAB pool if we opened it.
 if wasOpened
@@ -221,33 +237,32 @@ if ftbverbose
 end
 
 %% Debugging figure
-%
+
 % close all
 %
-% tidx = 1; % time step to plot
 % ri = 85; % column index
 % ci = 95; % row index
+%
+% [~, idx] = min(sqrt((Mobj.lon - lon(ri, ci)).^2 + (Mobj.lat - lat(ri, ci)).^2));
 %
 % % Vertical profiles
 % figure
 % clf
 %
 % % The top row shows the temperature/salinity values as plotted against
-% % index (i.e. position in the array). Since POLCOMS stores the seabed
-% % first, its values appear at the bottom i.e. the profile is the right way
-% % up. Just to make things interesting, the depths returned from the NetCDF
-% % files are stored the opposite way (surface is the first value in the
-% % array). So, if you plot temperature/salinity against depth, the profile
-% % is upside down.
+% % index (i.e. position in the array). I had thought POLCOMS stored its data
+% % from seabed to sea surface, but looking at the NetCDF files in ncview,
+% % it's clear that the data are in fact stored surface to seabed (like
+% % FVCOM). As such, the two plots in the top row should be upside down (i.e.
+% % surface values at the bottom of the plot). The two lower rows should have
+% % three lines which all match: the raw POLCOMS data, the POLCOMS data for
+% % the current time step (i.e. that in 'temperature' and 'salinity') and the
+% % interpolated FVCOM data against depth.
 % %
-% % Thus, the vertical distribution of temperature/salinity profiles should
-% % match in the top and bottom rows. The temperature/salinity data are
-% % flipped in those figures (either directly in the plot command, or via the
-% % flipped arrays (temperature, salinity)).
-% %
-% % Furthermore, the pc.*.data have the rows and columns flipped, so (ci, ri)
-% % in pc.*.data and (ri, ci) in 'temperature', 'salinity' and 'depth'.
-% % Needless to say, the two lines in the lower plots should overlap.
+% % Also worth noting, the pc.*.data have the rows and columns flipped, so
+% % (ci, ri) in pc.*.data and (ri, ci) in 'temperature', 'salinity' and
+% % 'depth'. Needless to say, the two lines in the lower plots should
+% % overlap.
 %
 % subplot(2,2,1)
 % plot(squeeze(pc.ETWD.data(ci, ri, :, tidx)), 1:size(depth, 3), 'rx:')
@@ -264,30 +279,36 @@ end
 % subplot(2,2,3)
 % % Although POLCOMS stores its temperature values from seabed to surface,
 % % the depths are stored surface to seabed. Nice. Flip the
-% % temperature/salinity data accordingly.
-% plot(flipud(squeeze(pc.ETWD.data(ci, ri, :, tidx))), squeeze(pc.depth.data(ci, ri, :, tidx)), 'rx-')
+% % temperature/salinity data accordingly. The lines here should match one
+% % another.
+% plot(squeeze(pc.ETWD.data(ci, ri, :, tidx)), squeeze(pc.depth.data(ci, ri, :, tidx)), 'rx-')
 % hold on
 % plot(squeeze(temperature(ri, ci, :)), squeeze(depth(ri, ci, :)), '.:')
+% % Add the equivalent interpolated FVCOM data point
+% plot(fvtemp(idx, :), Mobj.siglayz(idx, :), 'g.-')
 % xlabel('Temperature (^{\circ}C)')
 % ylabel('Depth (m)')
 % title('Depth Temperature')
-% legend('pc', 'temp', 'location', 'north')
+% legend('pc', 'temp', 'fvcom', 'location', 'north')
 % legend('boxoff')
 %
 % subplot(2,2,4)
 % % Although POLCOMS stores its temperature values from seabed to surface,
 % % the depths are stored surface to seabed. Nice. Flip the
-% % temperature/salinity data accordingly.
-% plot(flipud(squeeze(pc.x1XD.data(ci, ri, :, tidx))), squeeze(pc.depth.data(ci, ri, :, tidx)), 'rx-')
+% % temperature/salinity data accordingly. The lines here should match one
+% % another.
+% plot(squeeze(pc.x1XD.data(ci, ri, :, tidx)), squeeze(pc.depth.data(ci, ri, :, tidx)), 'rx-')
 % hold on
 % plot(squeeze(salinity(ri, ci, :)), squeeze(depth(ri, ci, :)), '.:')
+% % Add the equivalent interpolated FVCOM data point
+% plot(fvsalt(idx, :), Mobj.siglayz(idx, :), 'g.-')
 % xlabel('Salinity')
 % ylabel('Depth (m)')
 % title('Depth Salinity')
-% legend('pc', 'salt', 'location', 'north')
+% legend('pc', 'salt', 'fvcom', 'location', 'north')
 % legend('boxoff')
 %
-% % Plot the sample location
+% %% Plot the sample location
 % figure
 % dx = mean(diff(pc.lon.data));
 % dy = mean(diff(pc.lat.data));
