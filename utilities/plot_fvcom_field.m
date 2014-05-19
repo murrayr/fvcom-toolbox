@@ -34,20 +34,12 @@ else
     time_flag = false;
 end
 
-xE = M.x(nv)';
-yE = M.y(nv)';
-plot_field = squeeze(plot_field);
-
-if size(plot_field,1)==size(nv,1) % plot on elements
-    patch_func = @(dummy) patch(xE, yE, dummy', 'linestyle', 'none');
-elseif size(plot_field,1)==size(M.x,1) % plot on nodes
-    patch_func = @(dummy) patch('Vertices',[M.x, M.y], 'Faces',nv, 'Cdata',dummy,'linestyle','none','facecolor','interp');
-end
-
 % defaults
 clims = [min(plot_field(:)) max(plot_field(:))];
 if clims(1)==clims(2) clims(1)=clims(1)-0.1; clims(2)=clims(2)+0.1; end
 gif = false;
+grd = false;
+plot_ll = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -62,6 +54,37 @@ for ii=1:1:length(varargin)
             gif_filename = varargin{ii+1}
         case 'axi' % axis
             axi = varargin{ii+1};
+        case 'grd' % grid lines
+            grd = true;
+            edgecolor = varargin{ii+1};
+        case 'pll'
+            plot_ll = true;
+    end
+end
+
+if plot_ll
+    x = M.lon;
+    y = M.lat;
+else
+    x = M.x;
+    y = M.y;
+end
+
+xE = x(nv)';
+yE = y(nv)';
+plot_field = squeeze(plot_field);
+
+if size(plot_field,1)==size(nv,1) % plot on elements
+    if grd
+        patch_func = @(dummy) patch(xE, yE, dummy', 'edgecolor', edgecolor);
+    else
+        patch_func = @(dummy) patch(xE, yE, dummy', 'linestyle', 'none');
+    end
+elseif size(plot_field,1)==size(M.x,1) % plot on nodes
+    if grd
+        patch_func = @(dummy) patch('Vertices',[x, y], 'Faces',nv, 'Cdata',dummy,'edgecolor', edgecolor,'facecolor','interp');
+    else
+        patch_func = @(dummy) patch('Vertices',[x, y], 'Faces',nv, 'Cdata',dummy,'linestyle','none','facecolor','interp');
     end
 end
 
