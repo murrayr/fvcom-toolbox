@@ -36,6 +36,7 @@ function [M] = read_netcdf_vars(varargin)
 %==========================================================================
 
 dimrange = false;
+extract_all_flag = false;
 
 % look for some keywords with some setting after them and remember which
 % index of varargin are 'taken' in freeI.
@@ -54,6 +55,9 @@ for ii=1:1:length(varargin)
             subsample_dim(subsample_num) = {varargin{ii+1}};
             subsample_ran(:,subsample_num) = varargin{ii+2};
             freeI([ii ii+1 ii+2]) = 0;
+        case 'all_vars'
+            freeI([ii]) = 0;
+            extract_all_flag = true;
     end
 end
 
@@ -82,7 +86,9 @@ for ii=1:size(varnames,2);
     if size(test1,1)==0 test = [test ii]; end
 end
 
-if sum(test)>0
+if extract_all_flag
+    varnames = variable_names_avaliable;
+elseif sum(test)>0
     disp([varnames(test) ' could not be found']);
     disp(['variables avaliable are: ' variable_names_avaliable]);
     M = 0; netcdf.close(ncid);
@@ -108,6 +114,11 @@ if dimrange
         end
     end
 end
+% M.dimname = dimname;
+% M.dimsize = dimsize;
+% M.dimsize2 = M.dimsize;
+% M.dimsize2(sDID+1) = diff(subsample_ran,1);
+% M.varnames = varnames;
 
 for ii=1:size(varnames,2) % loop through all the variables to extract
     varid(ii) = netcdf.inqVarID(ncid,varnames{ii});
@@ -149,12 +160,12 @@ for ii=1:size(varnames,2) % loop through all the variables to extract
         % get all the dimension lengths and make a starts one (zeros)
         dim_range(2,:) = dimsize(dimids+1); % the sizes
         dim_range(1,:) = zeros(1, size(dim_range,2));   % the start positions, i.e. zeros
-        
+                
         % redefine the dim_starts and dim array
         for jj=1:length(I)
         	if I(jj) dim_range(:,jj) = [subsample_ran(1,I(jj)); subsample_ran(end,I(jj))-subsample_ran(1,I(jj))]; end
         end
-                
+        
         M.(varnames{ii}) = double(netcdf.getVar(ncid, varid(ii), dim_range(1,:), dim_range(2,:)));
     else
         % Do not subsample if 'I' doens't exist or we are not subsampling
