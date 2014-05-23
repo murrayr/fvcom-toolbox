@@ -17,6 +17,9 @@
 % Author(s)
 %   Rory O'Hara Murray (Marine Scotland Science)
 %
+% Developments:
+% 2014-05-22: Changed the way fig id is checked, not using 'exist' anymore.
+%
 function plot_fvcom_field(M, plot_field, varargin)
 MJD_datenum = datenum('1858-11-17 00:00:00');
 
@@ -40,6 +43,7 @@ if clims(1)==clims(2) clims(1)=clims(1)-0.1; clims(2)=clims(2)+0.1; end
 gif = false;
 grd = false;
 plot_ll = false;
+fig_flag = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -47,6 +51,7 @@ for ii=1:1:length(varargin)
     switch(keyword(1:3))
         case 'fid' % id of a figure
             fig = varargin{ii+1};
+            fig_flag = true;
         case 'cli' % colour limits
             clims = varargin{ii+1};
         case 'gif' % make an animated gif
@@ -88,7 +93,7 @@ elseif size(plot_field,1)==size(M.x,1) % plot on nodes
     end
 end
 
-if exist('fig')==0
+if not(fig_flag)
     fig = figure;
 end
 
