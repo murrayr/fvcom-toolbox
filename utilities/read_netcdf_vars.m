@@ -33,6 +33,7 @@ function [M] = read_netcdf_vars(varargin)
 %
 % Revision history
 %   v0 July 2013
+% 2014-05-27 dimension ids are now atted to attributes (ROM)
 %==========================================================================
 
 dimrange = false;
@@ -140,6 +141,9 @@ for ii=1:size(varnames,2) % loop through all the variables to extract
 
     % get info about the variable in question
 	[varname xtype dimids atts] = netcdf.inqVar(ncid,varid(ii));
+    
+    % add dimids to the attributes
+    eval(['M.' varnames{ii} '_att.dimids = dimids;']);
 
     % Take a subset if variable is dependent on the subsample variable
     if dimrange
