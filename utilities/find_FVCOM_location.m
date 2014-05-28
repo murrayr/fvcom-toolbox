@@ -30,7 +30,8 @@ get_space = false; nID = 0; eID = 0;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
-    if length(keyword)<8, continue; end
+    vartype = class(keyword);
+    if vartype(1)~='c' | length(keyword)<8, continue; end
     switch(keyword(1:8))
         case 'filename'
             netcdf_filename = varargin{ii+1};
@@ -40,6 +41,8 @@ for ii=1:1:length(varargin)
         case 'time_val'
             model_time = varargin{ii+1};
             get_time = true;
+            model_time_size = size(model_time);
+            if model_time_size(2)>model_time_size(1) model_time = model_time'; end
     end
 end
 
@@ -53,12 +56,12 @@ elseif get_time
 end
 
 if get_space
-    nID = fun_nearest2D_internal(xy(1), xy(2), M.x, M.y);
-    eID = fun_nearest2D_internal(xy(1), xy(2), M.xc, M.yc);
+    nID = fun_nearest2D_internal(xy(:,1), xy(:,2), M.x, M.y);
+    eID = fun_nearest2D_internal(xy(:,1), xy(:,2), M.xc, M.yc);
 end
 
 if get_time
-    tID = fun_nearest_internal(M.time', model_time);
+    tID = fun_nearest_internal(M.time', model_time');
 end
 
 % define function fun_nearest2D_internal

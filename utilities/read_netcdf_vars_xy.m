@@ -27,7 +27,8 @@ freeI = true(1,size(varargin,2));
 subsample_num = 0;
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
-    if length(keyword)<10, continue; end
+    vartype = class(keyword);
+    if vartype(1)~='c' | length(keyword)<10, continue; end
     switch(keyword(1:10))
         case 'nodevalues'
             nodeflag = true;
