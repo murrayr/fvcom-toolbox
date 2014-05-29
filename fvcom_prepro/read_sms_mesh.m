@@ -43,6 +43,10 @@ function [Mobj] = read_sms_mesh(varargin)
 %   2013-12-11 Closed the sms_2dm file using fclose (ROM).
 %   2014-04-10 Fix bugs when not using bathymetry (i.e. only reading the
 %   grid data in).
+%   2014-05-29 Changed the way the header is read and skipped (ROM).
+%   2014-05-29 Changed the way the nodestrings are read, taking into
+%   account the possibility that SMS adds exatra 'name' number to each
+%   nodestring after the -ve indicator (ROM).
 %
 %==============================================================================
 
@@ -175,7 +179,9 @@ lat = zeros(nVerts,1);
 ts  = zeros(nVerts,1);
 
 % Skip the header
-C = textscan(fid, '%s', nHeader + 1);
+for ii=1:nHeader
+    lin = fgetl(fid);
+end
 
 % Read the triangulation table
 C = textscan(fid, '%s %d %d %d %d %d', nElems);
@@ -206,19 +212,14 @@ end
 % Build array of all the nodes in the nodestrings.
 C = textscan(fid, '%s %d %d %d %d %d %d %d %d %d %d', nStrings);
 allNodes = cell2mat(C(2:end))';
-allNodes(allNodes == 0) = [];
+nodeStrings = find(allNodes < 0);
+startp1 = 10*ceil(nodeStrings./10)+1;
+ns_range = [[1; startp1(1:end-1)], nodeStrings];
 
 % Add a new field to Mobj with all the nodestrings as a cell array.
-nodeStrings = find(allNodes < 0);
 read_obc_nodes = cell(1, length(nodeStrings));
-for nString = 1:sum(allNodes < 0)
-    if nString == 1
-        read_obc_nodes{nString} = abs(allNodes(1:nodeStrings(nString)));
-    else
-        read_obc_nodes{nString} = ...
-            abs(allNodes(nodeStrings(nString - 1) + 1: ...
-            nodeStrings(nString)));
-    end
+for nString = 1:size(ns_range,1)
+        read_obc_nodes{nString} = abs(allNodes(ns_range(nString,1):ns_range(nString,2)));
 end
 
 if nStrings > 0
