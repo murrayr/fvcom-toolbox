@@ -47,38 +47,12 @@ else
 end;
 
 
-
-%------------------------------------------------------------------------------
-% Perform the projection:  USER DEFINED 
-% Example:  project/inverse project to state plane 1802
-%------------------------------------------------------------------------------
-
-%if(ProjectDirection == 'forward')
-%	fprintf('Projecting from (lon,lat) to (x,y)\n');
-%	[x,y] = sp_proj('1802','forward',lon,lat,'m');
-%	
-%else
-%	fprintf('Inverse Projecting from (x,y) to (lon,lat)\n')
-%	[lon,lat] = sp_proj('1802','inverse',x,y,'m');
-%end;
-
-%------------------------------------------------------------------------------
-% Skagit, UTM, Zone 10 (see http://www.dmap.co.uk/utmworld.htm)
-%------------------------------------------------------------------------------
-m_proj('UTM','longitude',[-124,-122],'latitude',[47,49],'zone',10,'hemisphere','north','ellipsoid','wgs84')
-%m_proj get
-%[x,y] = m_ll2xy(-122.530820 , 48.363114);
-%fprintf('x %f y %f\n',x,y-1e7);
-%fprintf('should be 534752, 5356766.\n')
-deltay = 1e7;
-
 if(ProjectDirection == 'forward')
-%	fprintf('Projecting from (lon,lat) to (x,y)\n');
-	[x,y]=m_ll2xy(lon,lat); 
-	y = y - deltay; %why?
+	fprintf('Projecting from (lon,lat) to (x,y) UTM 30 N\n');
+    [x, y] = ll2utm(lon, lat, 30);
 else
-%	fprintf('Inverse Projecting from (x,y) to (lon,lat)\n')
-	[lon,lat]=m_xy2ll(x,y+deltay); 
+	fprintf('Inverse Projecting from (x,y) UTM 30 N to (lon,lat)\n')
+	[lon, lat]=utm2ll(x,y,30); 
 end;
 
 
