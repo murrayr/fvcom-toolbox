@@ -27,9 +27,12 @@ function write_FVCOM_meanflow_ascii(Mobj, casename)
 %
 % Author(s):
 %    Pierre Cazenave (Plymouth Marine Laboratory)
+%    Rory O'Hara Murray (MSS)
 %
 % Revision history
 %    2013-02-25 - First version.
+%    2014-07-01 - changed the listing nodes to listing of elements and
+%    changed one other mistake. (ROM)
 % 
 % TODO: Implement support for multiple open boundaries in all the outputs.
 %
@@ -51,11 +54,11 @@ f = fopen([casename, '_meanflow.dat'], 'w');
 if f < 0
     error('Problem writing to _meanflow.dat file. Check permissions and try again.')
 end
-% Number of boundary nodes
-fprintf(f, '%8d\n', Mobj.nObcNodes);
-% Boundary node IDs
-for i = 1:Mobj.nObcNodes
-    fprintf(f, '%8d\n', Mobj.read_obc_nodes{1}(i));
+% Number of boundary Elements
+fprintf(f, '%8d\n', Mobj.nObcElements);
+% Boundary element IDs
+for i = 1:Mobj.nObcElements
+    fprintf(f, '%8d\n', Mobj.read_obc_elements{1}(i));
 end
 % Sigma level distribution
 s = '%8d';
@@ -105,7 +108,7 @@ tmpObcNodes = Mobj.obc_nodes';
 ObcNodes = tmpObcNodes(tmpObcNodes ~= 0)';
 
 fprintf(f, '%8d\n', numel(ObcNodes));
-for i = 1:numel(ObcNodes(i))
+for i = 1:numel(ObcNodes)
     fprintf(f, '%8i\n', ObcNodes(i));
 end
 
@@ -155,7 +158,7 @@ for ss = 1:nb
 end
 
 for i = 1:nt
-    fprintf(f, s', [round(Mobj.el_time(i)), Mobj.surfaceElevation(:, i)']);
+    fprintf(f, s', [round(Mobj.el_time(i)*24*3600), Mobj.surfaceElevation(:, i)']);
 end
 
 fclose(f);
@@ -198,7 +201,7 @@ end
 for t = 1:nt
     
     % Time since the start of the time series (in seconds).
-    iint = (Mobj.mf_times(t) - Mobj.mf_times(1)) * 24 * 3600;
+    iint = round((Mobj.mf_times(t) - Mobj.mf_times(1)) * 24 * 3600);
     
     % Dump the time and mean u and then mean v vectors.
     fprintf(f, s, [iint; mean(Mobj.meanflow_u(:, :, t), 2)]);
@@ -234,5 +237,7 @@ end
 if ftbverbose
     fprintf('end   : %s\n', subname)
 end
+
+fclose(f);
 
 
