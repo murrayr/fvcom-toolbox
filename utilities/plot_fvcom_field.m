@@ -3,22 +3,28 @@
 % output files. This function runs an animation if the field includes more
 % than one time steps.
 % 
+% plot_fvcom_field(Mobj, PlotField, 'fid', figure_id, 'cli', colour_lims, 'gif',
+% filename, 'axi', axis_range, 'pll', 'grd', colour);
+%
 % INPUT
 %   Mobj                    = matlab mesh object 
 %   PlotField               = vertex-based field to plot
-%   [optional] fid          = the fid of the figure to plot the field in
-%   [optional] cli          = the colour limits to use
-%   [optional] fig          = make an animated gif - specify filename
-%   [optional] axi          = the axis
+%   [optional] fid          = the fid of the figure to plot the field in - specify figure id
+%   [optional] cli          = the colour limits to use - specify the limits
+%   [optional] gif          = make an animated gif - specify filename
+%   [optional] axi          = the axis - specify axis range
+%   [optional] pll          = the axis
+%   [optional] grd          = add gridlines - specify colour
 %
 % EXAMPLE USAGE
-%    plot_fvcom_field(Mobj,Mobj.zeta,'fid', 1, 'clims', [0 100], fig, 'animation.gif', 'axis', [60000 70000 40000 50000])
+%    plot_fvcom_field(Mobj, Mobj.zeta, 'fid', 1, 'cli', [0 100], 'gif', 'animation.gif', 'axi', [60000 70000 40000 50000])
 %
 % Author(s)
 %   Rory O'Hara Murray (Marine Scotland Science)
 %
 % Developments:
 % 2014-05-22: Changed the way fig id is checked, not using 'exist' anymore.
+% 2014-08-15: Added the axis command in
 %
 function plot_fvcom_field(M, plot_field, varargin)
 MJD_datenum = datenum('1858-11-17 00:00:00');
@@ -44,6 +50,7 @@ gif = false;
 grd = false;
 plot_ll = false;
 fig_flag = false;
+axis_flag = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -58,6 +65,7 @@ for ii=1:1:length(varargin)
             gif = true;
             gif_filename = varargin{ii+1}
         case 'axi' % axis
+            axis_flag = true;
             axi = varargin{ii+1};
         case 'grd' % grid lines
             grd = true;
@@ -73,6 +81,10 @@ if plot_ll
 else
     x = M.x;
     y = M.y;
+end
+
+if not(axis_flag)
+    axi = [min(x) max(x) min(y) max(y)];
 end
 
 xE = x(nv)';
@@ -102,6 +114,7 @@ for ii=1:size(plot_field,2)
     patch_func(plot_field(:,ii));
     colorbar
     set(gca, 'clim', clims)
+    axis(axi)
     if time_flag title(['time = ' datestr(M.time(ii)+MJD_datenum, 'HH:MM dd/mm/yyyy')]); end
     
     if gif
