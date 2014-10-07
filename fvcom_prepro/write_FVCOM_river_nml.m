@@ -20,6 +20,8 @@ function write_FVCOM_river_nml(Mobj, nml_file, nc_file, vString)
 %   vString - optional, pass a string (e.g. 'uniform') to write as the
 %   RIVER_VERTICAL_DISTRIBUTION in the namelist, bypassing the automated
 %   string generation.
+%   Removed the automatic use of 'uniform' if the profile is uniform. This
+%   is becasue FVCOM 3.1.6 doesn't seem to like the use of 'uniform'.
 % 
 % OUTPUT:
 %   Namelist for inclusion in the main FVCOM namelist (RIVER_INFO_FILE).
@@ -53,9 +55,9 @@ assert(f >= 0, 'Error writing to %s. Check permissions and try again.', nml_file
 % Build the vertical distribution string. Round to 15 decimal places so the
 % unique check works (hopefully no one needs that many vertical layers...).
 vDist = roundn(abs(diff(Mobj.siglev)), -15);
-if length(unique(vDist)) == 1
-    vString = '''uniform''';
-elseif nargin <= 3
+% if length(unique(vDist)) == 1
+%     vString = '''uniform''';
+if nargin <= 3
     vString = char();
     for ii = 1:length(vDist)
         vString = [vString, sprintf('%f ', vDist(ii))];

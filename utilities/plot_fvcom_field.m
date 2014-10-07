@@ -51,6 +51,8 @@ grd = false;
 plot_ll = false;
 fig_flag = false;
 axis_flag = false;
+title_flag = false;
+legend_text_flag = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -72,6 +74,12 @@ for ii=1:1:length(varargin)
             edgecolor = varargin{ii+1};
         case 'pll'
             plot_ll = true;
+        case 'tit'
+            title_flag = true;
+            fig_title = varargin{ii+1};
+        case 'leg'
+            legend_text_flag = true;
+            legend_text = varargin{ii+1};
     end
 end
 
@@ -112,10 +120,11 @@ end
 for ii=1:size(plot_field,2)
     if ishandle(fig)==0 break; end
     patch_func(plot_field(:,ii));
-    colorbar
+    c = colorbar;
+    if legend_text_flag set(get(c, 'ylabel'), 'string', legend_text); end
     set(gca, 'clim', clims)
     axis(axi)
-    if time_flag title(['time = ' datestr(M.time(ii)+MJD_datenum, 'HH:MM dd/mm/yyyy')]); end
+    if title_flag title(fig_title); elseif time_flag title(['time = ' datestr(M.time(ii)+MJD_datenum, 'HH:MM dd/mm/yyyy')]); end
     
     if gif
         axis off
