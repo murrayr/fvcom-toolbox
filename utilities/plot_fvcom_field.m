@@ -26,7 +26,7 @@
 % 2014-05-22: Changed the way fig id is checked, not using 'exist' anymore.
 % 2014-08-15: Added the axis command in
 %
-function plot_fvcom_field(M, plot_field, varargin)
+function [a] = plot_fvcom_field(M, plot_field, varargin)
 MJD_datenum = datenum('1858-11-17 00:00:00');
 
 % check to see if nv or tri should be used.
@@ -53,6 +53,7 @@ fig_flag = false;
 axis_flag = false;
 title_flag = false;
 legend_text_flag = false;
+quiver_flag = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -80,6 +81,9 @@ for ii=1:1:length(varargin)
         case 'leg'
             legend_text_flag = true;
             legend_text = varargin{ii+1};
+        case 'qui'
+            quiver_flag = true;
+            quiverData = varargin{ii+1};
     end
 end
 
@@ -105,7 +109,7 @@ if size(plot_field,1)==size(nv,1) % plot on elements
     else
         patch_func = @(dummy) patch(xE, yE, dummy', 'linestyle', 'none');
     end
-elseif size(plot_field,1)==size(M.x,1) % plot on nodes
+elseif size(plot_field,1)==size(x,1) % plot on nodes
     if grd
         patch_func = @(dummy) patch('Vertices',[x, y], 'Faces',nv, 'Cdata',dummy,'edgecolor', edgecolor,'facecolor','interp');
     else
@@ -119,12 +123,16 @@ end
 
 for ii=1:size(plot_field,2)
     if ishandle(fig)==0 break; end
-    patch_func(plot_field(:,ii));
+    a = patch_func(plot_field(:,ii));
     c = colorbar;
     if legend_text_flag set(get(c, 'ylabel'), 'string', legend_text); end
-    set(gca, 'clim', clims)
+    set(gca, 'clim', clims);
     axis(axi)
-    if title_flag title(fig_title); elseif time_flag title(['time = ' datestr(M.time(ii)+MJD_datenum, 'HH:MM dd/mm/yyyy')]); end
+    if title_flag title(fig_title); elseif time_flag title(['time = ' datestr(double(M.time(ii))+MJD_datenum, 'HH:MM dd/mm/yyyy')]); end
+    if quiver_flag
+        hold on
+        quiver(quiverData.X, quiverData.Y, quiverData.U(:,:,ii), quiverData.V(:,:,ii), 'k');
+    end
     
     if gif
         axis off
