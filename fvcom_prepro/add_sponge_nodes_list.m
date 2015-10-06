@@ -25,11 +25,15 @@ function [Mobj]  = add_sponge_nodes_list(Mobj,SpongeList,SpongeName,SpongeRadius
 %    Geoff Cowles (University of Massachusetts Dartmouth)
 %    Pierre Cazenave (Plymouth Marine Laboratory)
 %    Karen Thurston (National Oceanography Centre, Liverpool)
+%    Rory O'Hara Murray (Marine Scotland Science)
 %
 % Revision history
 %    Modifed from add_sponge_nodes to read in nodes from a supplied list.
 %    2012-11-26 Add ability to turn off the figures.
 %    2013-01-18 Added support for variable sponge radius
+%    2014-10-28 Added support for variable sponge damping coefficient, by
+%    setting the size of the sponge_fac and sponge_rad arrays to equal the
+%    number of sponge nodes by default.
 %   
 %==============================================================================
 subname = 'add_sponge_nodes';
@@ -82,13 +86,8 @@ Mobj.nSponge = Mobj.nSponge + 1;
 Mobj.nSpongeNodes(Mobj.nSponge) = npts;
 Mobj.sponge_nodes(Mobj.nSponge,1:npts) = SpongeList;
 Mobj.sponge_name{Mobj.nSponge} = SpongeName;
-Mobj.sponge_fac(Mobj.nSponge) = SpongeCoeff;
-
-if numel(unique(SpongeRadius)) == 1   % if you have a constant sponge radius
-    Mobj.sponge_rad(Mobj.nSponge) = SpongeRadius;
-else    % if you have a variable sponge radius
-    Mobj.sponge_rad(Mobj.nSponge,1:npts) = SpongeRadius;
-end
+Mobj.sponge_fac(Mobj.nSponge,1:npts) = SpongeCoeff;
+Mobj.sponge_rad(Mobj.nSponge,1:npts) = SpongeRadius;
 
 if(ftbverbose)
     fprintf(['end   : ' subname '\n'])
