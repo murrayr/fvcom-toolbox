@@ -87,6 +87,7 @@ ncid = netcdf.open(netcdf_filename, 'NC_NOWRITE');
 [ndims,nvars,ngatts,unlimdimid] = netcdf.inq(ncid);
 
 % get a list of the variables avaliable and check the inputs
+variable_names_avaliable = {};
 for ii=0:nvars-1
     variable_names_avaliable{ii+1} = netcdf.inqVar(ncid, ii);
 end
@@ -180,10 +181,12 @@ for ii=1:size(varnames,2)
             end
         end
         
-        M.(varnames{ii}) = double(netcdf.getVar(ncid, varid(ii), dim_range(1,:), dim_range(2,:), dim_range(3,:)));
+        %M.(varnames{ii}) = double(netcdf.getVar(ncid, varid(ii), dim_range(1,:), dim_range(2,:), dim_range(3,:)));
+        M.(varnames{ii}) = (netcdf.getVar(ncid, varid(ii), dim_range(1,:), dim_range(2,:), dim_range(3,:)));
     else
         % Do not subsample if 'I' doens't exist or we are not subsampling
-        M.(varnames{ii}) = double(netcdf.getVar(ncid, varid(ii)));
+        %M.(varnames{ii}) = double(netcdf.getVar(ncid, varid(ii)));
+        M.(varnames{ii}) = (netcdf.getVar(ncid, varid(ii)));
     end
 end
 

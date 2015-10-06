@@ -41,6 +41,14 @@ for ii=1:1:length(varargin)
     end
 end
 
+% error checking
+if cellflag & nodeflag
+    if length(cellvalues) ~= length(nodevalues)
+        error('The number of elements and nodes are not the same. This functions only works if they are the same :-(');
+        return
+    end
+end
+
 % Call read_netcdf_vars.m with all the same arguments, appart from those
 % used here to define xy_nodes and cells
 
@@ -58,7 +66,7 @@ if nodeflag && cellflag
             varnames = fieldnames(M1);
             for ii=4:2:length(varnames)
                 dimids = M1.(varnames{ii-1}).dimids;
-                if dimids(1)<=1;
+                if size(dimids,1)>0 && dimids(1)<=1;
                     M.(varnames{ii})(count,:,:) = M1.(varnames{ii});
                 end
             end
