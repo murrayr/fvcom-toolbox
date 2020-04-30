@@ -6,7 +6,7 @@
 %
 % Rory O'Hara Murray, 2013-07-01
 %
-function [Mobj TMD_ConList] = set_elevtide_tmd(Mobj, dates_MJD, path_to_tmd)
+function [Mobj TMD_ConList] = set_elevtide_tmd(Mobj, dates_MJD, Conlist_id)
 
 %MyTitle = 'Julian FVCOM time series for open boundary from TPXO model using TMD';
 
@@ -14,13 +14,22 @@ function [Mobj TMD_ConList] = set_elevtide_tmd(Mobj, dates_MJD, path_to_tmd)
 if(Mobj.nObs==0)
 	warning('cannot setup spectral open boundary, there is no open boundary in the mesh struct')
 	return
-end;
+end
 
 % make sure lon and lat are defined
 if(not(Mobj.have_lonlat))
     warning('cannot setup spectral open boundary, longitude and latitude are not defined')
     return
 end
+
+if nargin<3
+    Conlist_id = [];
+end
+
+% work out the TMD path
+check_path = which('TMD.m');
+path_to_tmd = check_path(1:end-5);
+
 
 %for ob=1:Mobj.nObs % loop through each open boundary
 ob = 1; %assume only one open bounary for the moment
@@ -34,10 +43,10 @@ lon = Mobj.lon(BNid);
 dates = dates_MJD([1 end]) + datenum('1858-11-17 00:00:00');
 time = dates(1):1/24/6:dates(2);
 time_MJD = time - datenum('1858-11-17 00:00:00');
-model_file = 'DATA\Model_ES2008';
+model_file = 'DATA/Model_ES2008';
 current_dir = pwd;
 cd(path_to_tmd);
-[eta, TMD_ConList] = tmd_tide_pred_2(model_file, time, lat, lon, 'z');
+[eta, TMD_ConList] = tmd_tide_pred_2(model_file, time, lat, lon, 'z',Conlist_id);
 cd(current_dir);
 
 %%
@@ -45,7 +54,7 @@ figure('position', [360   502   879   420])
 %plot(NCOF_time, NCOF_eta(:,10), '-o', OTPS_time, OTPS_eta(:,10), OTPS_time, NCOF_eta2(:,10), '-')
 t0 = time(1);
 plot(time-t0, eta)
-legend(gca, 'TMD (OTIS)', 4)
+title('TMD (OTIS)')
 set(gca, 'yaxislocation', 'right')
 xlabel('Days')
 ylabel('Elevation (m)')
