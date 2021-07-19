@@ -160,7 +160,7 @@ if FileExists
     netcdf.reDef(nc)
 else
     % open boundary forcing
-    nc = netcdf.create(tsOBCFile, 'clobber');
+    nc = netcdf.create(tsOBCFile, 'NETCDF4');
 
     % define global attributes
     netcdf.putAtt(nc,netcdf.getConstant('NC_GLOBAL'),'title','Open boundary ERSEM nudging')
