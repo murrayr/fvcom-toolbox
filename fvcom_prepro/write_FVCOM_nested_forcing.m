@@ -1,4 +1,4 @@
-function write_FVCOM_nested_forcing(nest, ncfile, nesttype)
+function write_FVCOM_nested_forcing(nest, ncfile, nesttype, var_names)
 % Creates an FVCOM nesting file.
 %
 % function write_FVCOM_nested_forcing(nest, ncfile, nesttype)
@@ -75,6 +75,9 @@ function write_FVCOM_nested_forcing(nest, ncfile, nesttype)
 %   region.
 %   2016-12-23 Compress the time series data to save space. Requires
 %   netCDF4 in FVCOM.
+%   2023-11-08 Add capability to process other (non physics) variables by
+%   passing function a strucutre containing list of variabels and metadata.
+%   If no structure is passed, then the function assumes physics only.
 %
 %==========================================================================
 
@@ -111,15 +114,23 @@ end
 
 if nargin == 2
     nesttype = 1;
-elseif nargin < 2 || nargin > 3
+elseif nargin < 2 || nargin > 4
     error(['Incorrect input arguments. Supply netCDF file path, ', ...
-        'nesting struct and optionally the nesting type (1, 2 or 3).'])
+        'nesting struct and optionally the nesting type (1, 2 or 3) and list of variable names.'])
 end
 
-% Check we have all the data we need.
+% define var_names structure for physical variables if no varnames are supplied
+if nargin < 4
+    var_names = define_physics_nesting_var_names;
+end
+
+% Check we have all the minimum data we need.
 required = {'time', 'x', 'y', 'lon', 'lat', 'xc', 'yc', 'lonc', 'latc', ...
-    'nv', 'h', 'hc', 'u', 'v', 'ua', 'va', 'temp', 'salinity', 'hyw', ...
+    'nv', 'h', 'hc', ... % 'zeta', 'u', 'v', 'ua', 'va', 'temp', 'salinity', 'hyw', ...
     'weight_cell', 'weight_node', 'siglay', 'siglayc', 'siglev', 'siglevc'};
+for ii=1:length(var_names)
+    required{18+ii} = var_names(ii).name;
+end
 fields = fieldnames(nest);
 for f = required
     if any(strcmpi(f{1}, {'weight_node', 'weight_cell'})) && nesttype == 3
@@ -242,82 +253,35 @@ nv_varid = netcdf.defVar(nc, 'nv', 'NC_INT', ...
 netcdf.putAtt(nc, xc_varid, 'units', 'meters');
 netcdf.putAtt(nc, xc_varid, 'long_name', 'zonal x-coordinate');
 
-zeta_varid = netcdf.defVar(nc, 'zeta', 'NC_FLOAT', ...
-    [node_dimid, time_dimid]);
-netcdf.putAtt(nc, zeta_varid, 'long_name', 'Water Surface Elevation');
-netcdf.putAtt(nc, zeta_varid, 'units', 'meters');
-netcdf.putAtt(nc, zeta_varid, 'positive', 'up');
-netcdf.putAtt(nc, zeta_varid, 'standard_name', ...
-    'sea_surface_height_above_geoid');
-netcdf.putAtt(nc, zeta_varid, 'grid', 'Bathymetry_Mesh');
-netcdf.putAtt(nc, zeta_varid, 'coordinates', 'time lat lon');
-netcdf.putAtt(nc, zeta_varid, 'type', 'data');
-netcdf.putAtt(nc, zeta_varid, 'location', 'node');
+% Looping over all the main (big) variables such as velocities and
+% temperature, salinity.  This makes it easier to supply addition (e.g.
+% FABM-ERSEM) variables.
+field_names = fieldnames(var_names);
+for ii = 1:size(var_names,1)
+    if ndims(nest.(var_names(ii).name)) == 2 % 2D fields
+        if size(nest.(var_names(ii).name),1) == size(nest.x,1) % data on nodes
+            var_ids(ii) = netcdf.defVar(nc, var_names(ii).name, 'NC_FLOAT', [node_dimid, time_dimid]);
+        elseif size(nest.(var_names(ii).name),1) == size(nest.xc,1) % data on faces
+            var_ids(ii) = netcdf.defVar(nc, var_names(ii).name, 'NC_FLOAT', [elem_dimid, time_dimid]);
+        end
+    elseif ndims(nest.(var_names(ii).name)) == 3 % 3D fields
+        if size(nest.(var_names(ii).name), 2) == size(nest.siglay,2) % data on sigma layers
+            sigma_dimid_tmp = siglay_dimid;
+        elseif size(nest.(var_names(ii).name), 2) == size(nest.siglev,2) % data on sigma levels
+            sigma_dimid_tmp = siglev_dimid;
+        end
+        if size(nest.(var_names(ii).name),1) == size(nest.x,1) % data on nodes
+            var_ids(ii) = netcdf.defVar(nc, var_names(ii).name, 'NC_FLOAT', [node_dimid, sigma_dimid_tmp, time_dimid]);
+        elseif size(nest.(var_names(ii).name),1) == size(nest.xc,1) % data on faces
+            var_ids(ii) = netcdf.defVar(nc, var_names(ii).name, 'NC_FLOAT', [elem_dimid, sigma_dimid_tmp, time_dimid]);
+        end
+    end
 
-ua_varid = netcdf.defVar(nc, 'ua', 'NC_FLOAT', ...
-    [elem_dimid, time_dimid]);
-netcdf.putAtt(nc, ua_varid, 'long_name', 'Vertically Averaged x-velocity');
-netcdf.putAtt(nc, ua_varid, 'units', 'meters  s-1');
-netcdf.putAtt(nc, ua_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, ua_varid, 'type', 'data');
-
-va_varid = netcdf.defVar(nc, 'va', 'NC_FLOAT', ...
-    [elem_dimid, time_dimid]);
-netcdf.putAtt(nc, va_varid, 'long_name', 'Vertically Averaged y-velocity');
-netcdf.putAtt(nc, va_varid, 'units', 'meters  s-1');
-netcdf.putAtt(nc, va_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, va_varid, 'type', 'data');
-
-u_varid = netcdf.defVar(nc, 'u', 'NC_FLOAT', ...
-    [elem_dimid, siglay_dimid, time_dimid]);
-netcdf.putAtt(nc, u_varid, 'long_name', 'Eastward Water Velocity');
-netcdf.putAtt(nc, u_varid, 'units', 'meters  s-1');
-netcdf.putAtt(nc, u_varid, 'standard_name', 'eastward_sea_water_velocity');
-netcdf.putAtt(nc, u_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, u_varid, 'coordinates', 'time siglay latc lonc');
-netcdf.putAtt(nc, u_varid, 'type', 'data');
-netcdf.putAtt(nc, u_varid, 'location', 'face');
-
-v_varid = netcdf.defVar(nc, 'v', 'NC_FLOAT', ...
-    [elem_dimid, siglay_dimid, time_dimid]);
-netcdf.putAtt(nc, v_varid, 'long_name', 'Northward Water Velocity');
-netcdf.putAtt(nc, v_varid, 'units', 'meters  s-1');
-netcdf.putAtt(nc, v_varid, 'standard_name', ...
-    'Northward_sea_water_velocity');
-netcdf.putAtt(nc, v_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, v_varid, 'coordinates', 'time siglay latc lonc');
-netcdf.putAtt(nc, v_varid, 'type', 'data');
-netcdf.putAtt(nc, v_varid, 'location', 'face');
-
-temp_varid = netcdf.defVar(nc, 'temp', 'NC_FLOAT', ...
-    [node_dimid, siglay_dimid, time_dimid]);
-netcdf.putAtt(nc, temp_varid, 'long_name', 'Temperature');
-netcdf.putAtt(nc, temp_varid, 'standard_name', 'sea_water_temperature');
-netcdf.putAtt(nc, temp_varid, 'units', 'degrees Celcius');
-netcdf.putAtt(nc, temp_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, temp_varid, 'coordinates', 'time siglay lat lon');
-netcdf.putAtt(nc, temp_varid, 'type', 'data');
-netcdf.putAtt(nc, temp_varid, 'location', 'node');
-
-salinity_varid = netcdf.defVar(nc, 'salinity', 'NC_FLOAT', ...
-    [node_dimid, siglay_dimid, time_dimid]);
-netcdf.putAtt(nc, salinity_varid, 'long_name', 'Salinity');
-netcdf.putAtt(nc, salinity_varid, 'standard_name', 'sea_water_salinity');
-netcdf.putAtt(nc, salinity_varid, 'units', '1e-3');
-netcdf.putAtt(nc, salinity_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, salinity_varid, 'coordinates', 'time siglay lat lon');
-netcdf.putAtt(nc, salinity_varid, 'type', 'data');
-netcdf.putAtt(nc, salinity_varid, 'location', 'node');
-
-hyw_varid = netcdf.defVar(nc, 'hyw', 'NC_FLOAT', ...
-    [node_dimid, siglev_dimid, time_dimid]);
-netcdf.putAtt(nc, hyw_varid, 'long_name', ...
-    'hydro static vertical velocity');
-netcdf.putAtt(nc, hyw_varid, 'units', 'meters s-1');
-netcdf.putAtt(nc, hyw_varid, 'grid', 'fvcom_grid');
-netcdf.putAtt(nc, hyw_varid, 'type', 'data');
-netcdf.putAtt(nc, hyw_varid, 'coordinates', 'time siglay lat lon');
-
+    for jj = 2:length(field_names)
+        netcdf.putAtt(nc, var_ids(ii), field_names{jj}, var_names(ii).(field_names{jj}));
+    end
+end
+ 
 siglay_varid = netcdf.defVar(nc, 'siglay', 'NC_FLOAT', ...
     [node_dimid, siglay_dimid]);
 netcdf.putAtt(nc, siglay_varid, 'long_name', 'Sigma Layers');
@@ -393,12 +357,9 @@ if nesttype > 2
 end
 
 % enable compression on the big variables.
-netcdf.defVarDeflate(nc, zeta_varid, true, true, 7);
-netcdf.defVarDeflate(nc, u_varid, true, true, 7);
-netcdf.defVarDeflate(nc, v_varid, true, true, 7);
-netcdf.defVarDeflate(nc, temp_varid, true, true, 7);
-netcdf.defVarDeflate(nc, salinity_varid, true, true, 7);
-netcdf.defVarDeflate(nc, hyw_varid, true, true, 7);
+for ii = 1:length(var_ids)
+    netcdf.defVarDeflate(nc, var_ids(ii), true, true, 7);
+end
 
 % end definitions
 netcdf.endDef(nc);
@@ -449,14 +410,10 @@ netcdf.putVar(nc, latc_varid, nest.latc);
 if ftbverbose
     fprintf('write time varying data\n')
 end
-netcdf.putVar(nc, zeta_varid, nest.zeta);
-netcdf.putVar(nc, ua_varid, nest.ua);
-netcdf.putVar(nc, va_varid, nest.va);
-netcdf.putVar(nc, u_varid, nest.u);
-netcdf.putVar(nc, v_varid, nest.v);
-netcdf.putVar(nc, temp_varid, nest.temp);
-netcdf.putVar(nc, salinity_varid, nest.salinity);
-netcdf.putVar(nc, hyw_varid, nest.hyw);
+% Loop over all the main large variables
+for ii = 1:size(var_names,1)
+    netcdf.putVar(nc, var_ids(ii), nest.(var_names(ii).name));
+end
 netcdf.putVar(nc, siglay_varid, nest.siglay);
 netcdf.putVar(nc, siglayc_varid, nest.siglayc);
 netcdf.putVar(nc, siglev_varid, nest.siglev);
@@ -473,4 +430,6 @@ netcdf.close(nc)
 
 if ftbverbose
     fprintf('end   : %s\n', subname)
+end
+
 end
