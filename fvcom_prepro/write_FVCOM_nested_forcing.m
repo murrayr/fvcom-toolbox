@@ -142,9 +142,12 @@ for f = required
     end
 end
 
-[elems, nsiglay, ntimes] = size(nest.u);
+%[elems, nsiglay, ntimes] = size(nest.u);
+elems = size(nest.xc,1);
+nsiglay = size(nest.siglay,2);           % number of sigma layers in the FVCOM model.
 nsiglev = nsiglay + 1;
-[nodes, ~] = size(nest.zeta);
+ntimes = size(nest.time,1);
+nodes = size(nest.x,1);
 
 % Can't use CLOBBER and NETCDF4 at the same time (the bitwise or didn't
 % work). Fall back to a horrible delete and then create instead.
@@ -257,7 +260,7 @@ netcdf.putAtt(nc, xc_varid, 'long_name', 'zonal x-coordinate');
 % temperature, salinity.  This makes it easier to supply addition (e.g.
 % FABM-ERSEM) variables.
 field_names = fieldnames(var_names);
-for ii = 1:size(var_names,1)
+for ii = 1:length(var_names)
     if ndims(nest.(var_names(ii).name)) == 2 % 2D fields
         if size(nest.(var_names(ii).name),1) == size(nest.x,1) % data on nodes
             var_ids(ii) = netcdf.defVar(nc, var_names(ii).name, 'NC_FLOAT', [node_dimid, time_dimid]);
@@ -411,7 +414,7 @@ if ftbverbose
     fprintf('write time varying data\n')
 end
 % Loop over all the main large variables
-for ii = 1:size(var_names,1)
+for ii = 1:length(var_names)
     netcdf.putVar(nc, var_ids(ii), nest.(var_names(ii).name));
 end
 netcdf.putVar(nc, siglay_varid, nest.siglay);
