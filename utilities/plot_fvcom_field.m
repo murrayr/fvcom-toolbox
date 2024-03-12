@@ -26,14 +26,14 @@
 % EXAMPLE USAGE
 %   plot_fvcom_field(Mobj, Mobj.zeta, 'fid', 1, 'cli', [0 100], 'gif', 'animation.gif', 'axi', [60000 70000 40000 50000])
 %   
-%   Quiver vecotor example 1 (plot every other depth average velocity vector on unstructured grid):
+%   Quiver vector example 1 (plot every other depth average velocity vector on unstructured grid):
 %   Q.X = PFOW.lonc(1:15:end);
 %   Q.Y = PFOW.latc(1:15:end);
 %   Q.U = PFOW.ua(1:15:end,:);
 %   Q.V = PFOW.va(1:15:end,:);
 %   plot_fvcom_field(PFOW, PFOW.ua(:,1:13), 'pll', 'qui', Q)
 %
-%   Quiver vecotor example 2 (include vecotrs on an interpolated regular grid):
+%   Quiver vector example 2 (include vecotrs on an interpolated regular grid):
 % Q.x = -4:0.01:-2;
 % Q.y = 58:0.01:59;
 % 
@@ -84,6 +84,7 @@ end
 gif = false;
 grd = false;
 plot_ll = false;
+plot_mm = false;
 fig_flag = false;
 axis_flag = false;
 title_flag = false;
@@ -113,6 +114,8 @@ for ii=1:1:length(varargin)
             edgecolor = varargin{ii+1};
         case 'pll'
             plot_ll = true;
+        case 'map'
+            plot_mm = true;
         case 'tit'
             title_flag = true;
             fig_title = varargin{ii+1};
@@ -133,6 +136,9 @@ end
 if plot_ll
     x = M.lon;
     y = M.lat;
+elseif plot_mm
+    [x,y]=m_ll2xy(M.lon, M.lat);
+    [xc,yc]=m_ll2xy(M.lonc, M.latc);
 else
     x = M.x;
     y = M.y;
@@ -171,6 +177,10 @@ else
     the_axes = axes;
 end
 axes(the_axes);
+
+if plot_mm
+    m_proj('albers equal-area','lat',axi([3 4]),'long',axi([1 2]));
+end
 
 for ii=1:size(plot_field,2)
     if ishandle(fig)==0 break; end
