@@ -33,23 +33,22 @@
 %   Q.V = PFOW.va(1:15:end,:);
 %   plot_fvcom_field(PFOW, PFOW.ua(:,1:13), 'pll', 'qui', Q)
 %
-%   Quiver vector example 2 (include vecotrs on an interpolated regular grid):
-% Q.x = -4:0.01:-2;
-% Q.y = 58:0.01:59;
+%   Quiver vector example 2 (include vectors on an interpolated regular grid):
+%   Q.x = -4:0.01:-2;
+%   Q.y = 58:0.01:59;
+%   [Q.X1, Q.Y1] = meshgrid(Q.x, Q.y);
+%   Q.X = Q.X1(:); Q.Y = Q.Y1(:);
 % 
-% [Q.X1, Q.Y1] = meshgrid(Q.x, Q.y);
-% Q.X = Q.X1(:); Q.Y = Q.Y1(:);
-% 
-% Only use data from within the region of interpolation
-% I = PFOW.lonc>Q.x(1) & PFOW.lonc<Q.x(end) & PFOW.latc>Q.y(1) & PFOW.latc<Q.y(end);
+%   Only use data from within the region of interpolation
+%   I = PFOW.lonc>Q.x(1) & PFOW.lonc<Q.x(end) & PFOW.latc>Q.y(1) & PFOW.latc<Q.y(end);
 %  
-% for tt=1:13
+%   for tt=1:13
 %     Fx = scatteredInterpolant(double(PFOW.lonc(I)), double(PFOW.latc(I)), double(PFOW.ua(I,tt)));
 %     Fy = scatteredInterpolant(double(PFOW.lonc(I)), double(PFOW.latc(I)), double(PFOW.va(I,tt)));
 %     Q.U(:,tt)  = Fx(Q.X, Q.Y);
 %     Q.V(:,tt)  = Fy(Q.X, Q.Y);
-% end
-% plot_fvcom_field(PFOW, PFOW.ua(:,1:13), 'pll', 'qui', Q)
+%   end
+%   plot_fvcom_field(PFOW, PFOW.ua(:,1:13), 'pll', 'qui', Q)
 %
 % Author(s)
 %   Rory O'Hara Murray (Marine Scotland Science)
