@@ -1,4 +1,4 @@
-function write_FVCOM_TT3(turbine,filename,mytitle)
+function write_FVCOM_TT(turbine,filename,mytitle)
 
 % Dump tidal turbine parameters to FVCOM forcing file.
 %
