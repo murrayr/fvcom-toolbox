@@ -90,6 +90,7 @@ title_flag = false;
 legend_text_flag = false;
 quiver_flag = false;
 quiver2_flag = false;
+colormap_flag = false;
 
 for ii=1:1:length(varargin)
     keyword  = lower(varargin{ii});
@@ -126,6 +127,9 @@ for ii=1:1:length(varargin)
             quiverData = varargin{ii+1};
             if isfield(quiverData,'scale')==0 quiverData.scale = 1; end
             if isfield(quiverData,'colour')==0 quiverData.colour =0.99*[1 1 1]; end
+        case 'col'
+            colormap_flag = true;
+            colormap_map = varargin{ii+1};
 %         case 'qu2'
 %             quiver2_flag = true;
 %             quiverData = varargin{ii+1};
@@ -201,6 +205,9 @@ for ii=1:size(plot_field,2)
         hold on
         quiver(quiverData.X, quiverData.Y, quiverData.U(:,ii), quiverData.V(:,ii), quiverData.scale, 'color', quiverData.colour)
         hold off
+    end
+    if colormap_flag
+        colormap(colormap_map)
     end
 
     if gif
